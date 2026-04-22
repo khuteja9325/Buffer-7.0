@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MerkleGuard — File Integrity Monitor</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Clash+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- BOOT SCREEN -->
+  <div id="boot-screen">
+    <div class="boot-inner">
+      <div class="boot-logo">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="24,4 44,16 44,32 24,44 4,32 4,16" fill="none" stroke="#00FF88" stroke-width="1.5"/>
+          <polygon points="24,12 36,19 36,29 24,36 12,29 12,19" fill="none" stroke="#00FF88" stroke-width="1" opacity="0.5"/>
+          <circle cx="24" cy="24" r="3" fill="#00FF88"/>
+          <line x1="24" y1="4" x2="24" y2="12" stroke="#00FF88" stroke-width="1" opacity="0.6"/>
+          <line x1="44" y1="16" x2="36" y2="19" stroke="#00FF88" stroke-width="1" opacity="0.6"/>
+          <line x1="44" y1="32" x2="36" y2="29" stroke="#00FF88" stroke-width="1" opacity="0.6"/>
+          <line x1="24" y1="44" x2="24" y2="36" stroke="#00FF88" stroke-width="1" opacity="0.6"/>
+          <line x1="4" y1="32" x2="12" y2="29" stroke="#00FF88" stroke-width="1" opacity="0.6"/>
+          <line x1="4" y1="16" x2="12" y2="19" stroke="#00FF88" stroke-width="1" opacity="0.6"/>
+        </svg>
+      </div>
+      <div class="boot-title">MERKLEGUARD</div>
+      <div class="boot-sub">File Integrity Monitor v2.0</div>
+      <div class="boot-bar"><div class="boot-fill" id="boot-fill"></div></div>
+      <div class="boot-status" id="boot-status">Initializing SHA-256 engine...</div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app" class="hidden">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <svg viewBox="0 0 32 32" fill="none">
+          <polygon points="16,2 30,10 30,22 16,30 2,22 2,10" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+          <circle cx="16" cy="16" r="2.5" fill="var(--accent)"/>
+          <line x1="16" y1="2" x2="16" y2="9" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+          <line x1="30" y1="10" x2="24" y2="13" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+          <line x1="30" y1="22" x2="24" y2="19" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+          <line x1="16" y1="30" x2="16" y2="23" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+          <line x1="2" y1="22" x2="8" y2="19" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+          <line x1="2" y1="10" x2="8" y2="13" stroke="var(--accent)" stroke-width="1" opacity="0.5"/>
+        </svg>
+        <span>MerkleGuard</span>
+      </div>
+
+      <nav class="nav">
+        <div class="nav-item active" data-tab="dashboard">
+          <span class="nav-icon">⬡</span> Dashboard
+        </div>
+        <div class="nav-item" data-tab="files">
+          <span class="nav-icon">◈</span> Files
+          <span class="nav-badge" id="badge-files">0</span>
+        </div>
+        <div class="nav-item" data-tab="tree">
+          <span class="nav-icon">◉</span> Merkle Tree
+        </div>
+        <div class="nav-item" data-tab="proofpath">
+          <span class="nav-icon">◎</span> Proof Path
+        </div>
+        <div class="nav-item" data-tab="simulate">
+          <span class="nav-icon">◆</span> Attack Sim
+        </div>
+        <div class="nav-item" data-tab="logs">
+          <span class="nav-icon">▣</span> Audit Log
+          <span class="nav-badge danger" id="badge-alerts">0</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sys-status">
+          <div class="sys-dot" id="sys-dot"></div>
+          <span id="sys-label">SECURE</span>
+        </div>
+        <div class="sys-time" id="sys-clock"></div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+
+      <!-- TOP BAR -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="page-title" id="page-title">Dashboard</h1>
+          <span class="page-sub" id="page-sub">System overview</span>
+        </div>
+        <div class="topbar-right">
+          <div class="root-pill" id="root-pill">
+            <span class="root-pill-label">ROOT HASH</span>
+            <span class="root-pill-val" id="root-pill-val">—</span>
+            <span class="root-pill-status" id="root-pill-status">NO BASELINE</span>
+          </div>
+          <button class="btn-icon" title="Reset everything" onclick="resetAll()">↺</button>
+        </div>
+      </header>
+
+      <!-- ALERT BANNER -->
+      <div class="alert-banner hidden" id="alert-banner">
+        <span class="alert-icon">⚠</span>
+        <span id="alert-msg">Tampering detected</span>
+        <button onclick="document.getElementById('alert-banner').classList.add('hidden')">✕</button>
+      </div>
+
+      <!-- ═══════════════════════════════════ DASHBOARD ═══ -->
+      <section class="panel active" id="panel-dashboard">
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-label">Total Files</div>
+            <div class="metric-value blue" id="m-total">0</div>
+            <div class="metric-sub">monitored</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Secure</div>
+            <div class="metric-value green" id="m-secure">0</div>
+            <div class="metric-sub">verified intact</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Tampered</div>
+            <div class="metric-value red" id="m-tampered">0</div>
+            <div class="metric-sub">hash mismatch</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Tree Depth</div>
+            <div class="metric-value amber" id="m-depth">0</div>
+            <div class="metric-sub">log₂(n) levels</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Add Files</span>
+            </div>
+            <div class="drop-zone" id="drop-zone">
+              <div class="drop-icon">⬡</div>
+              <div class="drop-text">Drop files here</div>
+              <div class="drop-sub">or click to browse — any file type</div>
+              <input type="file" id="file-input" multiple style="display:none" onchange="handleFileInput(event)"/>
+            </div>
+            <button class="btn btn-outline full" onclick="document.getElementById('file-input').click()">
+              ＋ Choose Files
+            </button>
+            <button class="btn btn-outline full mt8" onclick="openFolderPicker()">
+              📂 Open Real Folder (Chrome/Edge)
+            </button>
+            <div class="folder-status" id="folder-status"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Quick Actions</span>
+            </div>
+            <button class="btn btn-primary full" onclick="takeSnapshot()">
+              ⬡ Take Baseline Snapshot
+            </button>
+            <button class="btn btn-outline full mt8" onclick="scanFiles()">
+              ↺ Run Integrity Scan
+            </button>
+            <button class="btn btn-outline full mt8" onclick="addPresetLinux()">
+              ＋ Load Linux System Files
+            </button>
+            <button class="btn btn-outline full mt8" onclick="addPresetWebApp()">
+              ＋ Load Web App Files
+            </button>
+            <div class="card-header mt16">
+              <span class="card-title">Hash Comparison</span>
+            </div>
+            <div class="hash-compare">
+              <div class="hash-row">
+                <span class="hash-label">Baseline</span>
+                <span class="hash-val mono" id="hc-baseline">—</span>
+              </div>
+              <div class="hash-row">
+                <span class="hash-label">Current</span>
+                <span class="hash-val mono" id="hc-current">—</span>
+              </div>
+              <div class="hash-row">
+                <span class="hash-label">Match</span>
+                <span class="hash-val" id="hc-match">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt16">
+          <div class="card-header">
+            <span class="card-title">Recent Activity</span>
+          </div>
+          <div class="activity-list" id="activity-list">
+            <div class="activity-empty">No activity yet. Add files to begin monitoring.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════ FILES ═══ -->
+      <section class="panel" id="panel-files">
+        <div class="toolbar">
+          <input type="text" class="search-input" id="file-search" placeholder="Search files..." oninput="renderFileList()"/>
+          <select class="select" id="filter-status" onchange="renderFileList()">
+            <option value="all">All Status</option>
+            <option value="ok">Secure</option>
+            <option value="tampered">Tampered</option>
+            <option value="added">Added</option>
+            <option value="deleted">Deleted</option>
+          </select>
+          <button class="btn btn-danger" onclick="removeSelected()">Remove Selected</button>
+        </div>
+
+        <div class="file-table-wrap">
+          <table class="file-table">
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"/></th>
+                <th>Filename</th>
+                <th>Status</th>
+                <th>Baseline Hash</th>
+                <th>Current Hash</th>
+                <th>Size</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="file-tbody"></tbody>
+          </table>
+          <div class="table-empty hidden" id="table-empty">No files added yet.</div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════ TREE ═══ -->
+      <section class="panel" id="panel-tree">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Live Merkle Tree</span>
+            <span class="card-sub mono" id="tree-info">No files</span>
+          </div>
+          <div class="tree-stage" id="tree-stage">
+            <svg id="tree-svg" class="tree-svg"></svg>
+          </div>
+          <div class="tree-legend">
+            <span class="legend-item"><span class="legend-dot green"></span>Secure</span>
+            <span class="legend-item"><span class="legend-dot red"></span>Tampered</span>
+            <span class="legend-item"><span class="legend-dot blue"></span>New/Added</span>
+            <span class="legend-item"><span class="legend-dot amber"></span>Root</span>
+          </div>
+        </div>
+
+        <div class="card mt16">
+          <div class="card-header">
+            <span class="card-title">Tree Statistics</span>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-item"><div class="stat-label">Leaf Nodes</div><div class="stat-val" id="stat-leaves">0</div></div>
+            <div class="stat-item"><div class="stat-label">Internal Nodes</div><div class="stat-val" id="stat-internal">0</div></div>
+            <div class="stat-item"><div class="stat-label">Tree Depth</div><div class="stat-val" id="stat-depth">0</div></div>
+            <div class="stat-item"><div class="stat-label">Comparisons to detect tamper</div><div class="stat-val" id="stat-ops">O(log n)</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════ PROOF PATH ═══ -->
+      <section class="panel" id="panel-proofpath">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Merkle Proof Path — O(log n) Verification</span>
+          </div>
+          <p class="panel-desc">Select a file to see its cryptographic proof path. This shows how any single file can be verified against the root hash in O(log n) steps — without accessing other files.</p>
+          <div class="proof-select-row">
+            <select class="select flex1" id="proof-file-select">
+              <option value="">— Choose a file —</option>
+            </select>
+            <button class="btn btn-primary" onclick="generateProof()">Generate Proof</button>
+          </div>
+        </div>
+
+        <div class="card mt16" id="proof-result" style="display:none">
+          <div class="card-header">
+            <span class="card-title" id="proof-filename">Proof for —</span>
+            <span class="badge" id="proof-valid-badge">VALID</span>
+          </div>
+          <div class="proof-chain" id="proof-chain"></div>
+          <div class="proof-summary" id="proof-summary"></div>
+        </div>
+
+        <div class="card mt16">
+          <div class="card-header"><span class="card-title">Efficiency Comparison</span></div>
+          <div class="efficiency-table">
+            <table class="file-table">
+              <thead><tr><th>Files</th><th>Naive (check all)</th><th>Merkle Tree (O log n)</th><th>Speedup</th></tr></thead>
+              <tbody id="efficiency-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════ SIMULATE ═══ -->
+      <section class="panel" id="panel-simulate">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Attack Simulation Lab</span>
+          </div>
+          <p class="panel-desc">Simulate real-world cyberattack scenarios. Each attack is detected by the Merkle Tree engine, demonstrating why O(log n) traversal is essential for large file systems.</p>
+          <div class="attack-grid">
+
+            <div class="attack-card" onclick="simByteFlip()">
+              <div class="attack-icon">⚡</div>
+              <div class="attack-title">Byte Flip</div>
+              <div class="attack-desc">Flip a single byte in a random file. Even 1 changed byte cascades up the tree and changes the root hash.</div>
+              <div class="attack-complexity">Detection: O(log n)</div>
+            </div>
+
+            <div class="attack-card" onclick="simInject()">
+              <div class="attack-icon">💉</div>
+              <div class="attack-title">Malicious Injection</div>
+              <div class="attack-desc">Inject a new unauthorized file into the directory. Unauthorized files change the tree structure and root hash.</div>
+              <div class="attack-complexity">Detection: O(log n)</div>
+            </div>
+
+            <div class="attack-card" onclick="simDelete()">
+              <div class="attack-icon">🗑</div>
+              <div class="attack-title">File Deletion</div>
+              <div class="attack-desc">Silently delete a file. The missing leaf node causes hash mismatches up the tree path.</div>
+              <div class="attack-complexity">Detection: O(log n)</div>
+            </div>
+
+            <div class="attack-card" onclick="simTimestamp()">
+              <div class="attack-icon">🕐</div>
+              <div class="attack-title">Metadata Spoof</div>
+              <div class="attack-desc">Change only file timestamp (not content). Merkle Tree is content-based — metadata spoofing is correctly ignored.</div>
+              <div class="attack-complexity">Result: No alert (correct)</div>
+            </div>
+
+            <div class="attack-card" onclick="simMassCompromise()">
+              <div class="attack-icon">💣</div>
+              <div class="attack-title">Mass Compromise</div>
+              <div class="attack-desc">Compromise 50% of files simultaneously (ransomware-style attack). Tree immediately detects all changes.</div>
+              <div class="attack-complexity">Detection: O(n log n) total</div>
+            </div>
+
+            <div class="attack-card" onclick="simRootSubstitution()">
+              <div class="attack-icon">👑</div>
+              <div class="attack-title">Root Substitution</div>
+              <div class="attack-desc">Attacker attempts to replace the trusted root hash. System detects the root mismatch immediately.</div>
+              <div class="attack-complexity">Detection: O(1)</div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="card mt16" id="sim-result-card" style="display:none">
+          <div class="card-header">
+            <span class="card-title">Simulation Result</span>
+            <span class="badge" id="sim-badge">RUNNING</span>
+          </div>
+          <div class="sim-terminal" id="sim-terminal"></div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════ LOGS ═══ -->
+      <section class="panel" id="panel-logs">
+        <div class="toolbar">
+          <select class="select" id="log-filter" onchange="renderLogs()">
+            <option value="all">All Levels</option>
+            <option value="ALERT">ALERT</option>
+            <option value="WARN">WARN</option>
+            <option value="INFO">INFO</option>
+            <option value="OK">OK</option>
+          </select>
+          <button class="btn btn-outline" onclick="exportLogs()">Export CSV</button>
+          <button class="btn btn-danger" onclick="clearLogs()">Clear Logs</button>
+        </div>
+        <div class="log-table-wrap">
+          <table class="file-table">
+            <thead><tr><th>#</th><th>Time</th><th>Level</th><th>Event</th><th>File</th></tr></thead>
+            <tbody id="log-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════ DSA NOTES ═══ -->
+      <section class="panel" id="panel-about">
+        <div class="card">
+          <div class="card-header"><span class="card-title">DSA Behind MerkleGuard</span></div>
+          <div class="dsa-content">
+
+            <div class="dsa-section">
+              <h3>What is a Merkle Tree?</h3>
+              <p>A Merkle Tree is a complete binary tree where each leaf node contains the cryptographic hash of a data block (here, a file), and each internal node contains the hash of its two children concatenated. The root hash acts as a single fingerprint for all data.</p>
+            </div>
+
+            <div class="dsa-section">
+              <h3>Time Complexity</h3>
+              <div class="complexity-table">
+                <div class="cx-row"><div class="cx-op">Build Tree</div><div class="cx-val">O(n)</div><div class="cx-desc">Hash each file, combine level-by-level</div></div>
+                <div class="cx-row"><div class="cx-op">Detect Tamper</div><div class="cx-val">O(log n)</div><div class="cx-desc">DFS: skip clean subtrees immediately</div></div>
+                <div class="cx-row"><div class="cx-op">Verify Proof</div><div class="cx-val">O(log n)</div><div class="cx-desc">Only need sibling hashes up the path</div></div>
+                <div class="cx-row"><div class="cx-op">Naive Scan</div><div class="cx-val">O(n)</div><div class="cx-desc">Must check every file individually</div></div>
+              </div>
+            </div>
+
+            <div class="dsa-section">
+              <h3>Data Structures Used</h3>
+              <div class="ds-list">
+                <div class="ds-item"><span class="ds-name">Binary Tree</span><span class="ds-use">Core Merkle Tree structure — each node has left/right children</span></div>
+                <div class="ds-item"><span class="ds-name">Hash Map</span><span class="ds-use">Maps filenames → baseline hashes for O(1) lookup</span></div>
+                <div class="ds-item"><span class="ds-name">Queue (BFS)</span><span class="ds-use">Tree rendering traverses level-by-level using BFS</span></div>
+                <div class="ds-item"><span class="ds-name">Stack (DFS)</span><span class="ds-use">Tamper detection uses recursive DFS to locate corrupted subtrees</span></div>
+                <div class="ds-item"><span class="ds-name">Array</span><span class="ds-use">Leaf nodes temporarily stored before bottom-up construction</span></div>
+              </div>
+            </div>
+
+            <div class="dsa-section">
+              <h3>Real-World Applications</h3>
+              <div class="app-grid">
+                <div class="app-item"><div class="app-icon">₿</div><div class="app-name">Blockchain</div><div class="app-desc">Bitcoin and Ethereum use Merkle trees for transaction verification</div></div>
+                <div class="app-item"><div class="app-icon">☁</div><div class="app-name">Cloud Storage</div><div class="app-desc">AWS S3 and IPFS use Merkle trees for data integrity proofs</div></div>
+                <div class="app-item"><div class="app-icon">🐙</div><div class="app-name">Git</div><div class="app-desc">Git's object model is a Merkle DAG for version control</div></div>
+                <div class="app-item"><div class="app-icon">🔒</div><div class="app-name">TLS/SSL</div><div class="app-desc">Certificate transparency logs use Merkle trees</div></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="merkle.js?v=20260417"></script>
+  <script src="ui.js?v=20260417"></script>
+</body>
+</html>
